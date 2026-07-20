@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "OmniLog (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "OmniLog (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

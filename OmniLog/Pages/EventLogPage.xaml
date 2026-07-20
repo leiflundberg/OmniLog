@@ -1,0 +1,207 @@
+<Page
+    x:Class="OmniLog.Pages.EventLogPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:OmniLog.Pages"
+    xmlns:models="using:OmniLog.Models"
+    mc:Ignorable="d"
+    NavigationCacheMode="Enabled">
+
+    <Grid Padding="24,12,24,12" RowSpacing="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Dynamic Header -->
+        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="{x:Bind TargetLogName, Mode=OneWay}" />
+
+        <!-- Compact Single-Line Filter / Control Panel -->
+        <Grid Grid.Row="1" ColumnSpacing="12" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" /> <!-- Limit ComboBox (Max) -->
+                <ColumnDefinition Width="Auto" /> <!-- Refresh Button -->
+                <ColumnDefinition Width="*" />    <!-- Search TextBox (fills middle) -->
+                <ColumnDefinition Width="Auto" /> <!-- Filters Checkboxes -->
+            </Grid.ColumnDefinitions>
+
+            <!-- Limit Selection -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <TextBlock Text="Max:" VerticalAlignment="Center" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <ComboBox x:Name="LimitComboBox" 
+                          Width="80"
+                          Height="32"
+                          FontSize="11"
+                          SelectedIndex="1"
+                          VerticalAlignment="Center"
+                          SelectionChanged="LimitComboBox_SelectionChanged">
+                    <ComboBoxItem Content="100" />
+                    <ComboBoxItem Content="500" />
+                    <ComboBoxItem Content="1000" />
+                    <ComboBoxItem Content="5000" />
+                </ComboBox>
+            </StackPanel>
+
+            <!-- Refresh Button -->
+            <Button x:Name="RefreshButton"
+                    Grid.Column="1"
+                    Click="RefreshButton_Click"
+                    VerticalAlignment="Center"
+                    Height="32"
+                    Style="{StaticResource AccentButtonStyle}">
+                <Button.Content>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE72C;" FontSize="11" />
+                        <TextBlock Text="Refresh" FontSize="11"/>
+                    </StackPanel>
+                </Button.Content>
+            </Button>
+
+            <!-- Search TextBox (No Header) -->
+            <TextBox x:Name="SearchTextBox"
+                     Grid.Column="2"
+                     PlaceholderText="Search Event ID, Provider, Message..."
+                     TextChanging="SearchTextBox_TextChanging"
+                     VerticalAlignment="Center"
+                     Height="32"/>
+
+            <!-- Filters horizontal panel -->
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="Filters:" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <CheckBox x:Name="CriticalCheckBox" Content="Critical" IsChecked="{x:Bind ViewModel.FilterCritical, Mode=TwoWay}" FontSize="11" MinWidth="0" Height="32" VerticalAlignment="Center"/>
+                <CheckBox x:Name="ErrorCheckBox" Content="Error" IsChecked="{x:Bind ViewModel.FilterError, Mode=TwoWay}" FontSize="11" MinWidth="0" Height="32" VerticalAlignment="Center"/>
+                <CheckBox x:Name="WarningCheckBox" Content="Warning" IsChecked="{x:Bind ViewModel.FilterWarning, Mode=TwoWay}" FontSize="11" MinWidth="0" Height="32" VerticalAlignment="Center"/>
+                <CheckBox x:Name="InfoCheckBox" Content="Information" IsChecked="{x:Bind ViewModel.FilterInformation, Mode=TwoWay}" FontSize="11" MinWidth="0" Height="32" VerticalAlignment="Center"/>
+                <CheckBox x:Name="VerboseCheckBox" Content="Verbose" IsChecked="{x:Bind ViewModel.FilterVerbose, Mode=TwoWay}" FontSize="11" MinWidth="0" Height="32" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Display Panel -->
+        <Grid Grid.Row="2">
+            <StackPanel x:Name="LoadingPanel" 
+                        HorizontalAlignment="Center" 
+                        VerticalAlignment="Center" 
+                        Spacing="12"
+                        Visibility="{x:Bind local:EventLogPage.GetVisibility(ViewModel.IsLoading), Mode=OneWay}">
+                <ProgressRing IsActive="True" Width="48" Height="48" />
+                <TextBlock Text="Reading event logs..." Style="{StaticResource BodyTextBlockStyle}" />
+            </StackPanel>
+
+            <InfoBar x:Name="ErrorInfoBar"
+                     Title="Failed to read Event Log"
+                     Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                     Severity="Warning"
+                     IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     VerticalAlignment="Top"
+                     Margin="0,0,0,12" />
+
+            <Grid x:Name="ContentGrid" Visibility="{x:Bind local:EventLogPage.GetInverseVisibility(ViewModel.IsLoading), Mode=OneWay}">
+                <ListView x:Name="LogsListView"
+                          ItemsSource="{x:Bind ViewModel.DisplayedLogs, Mode=OneWay}"
+                          SelectionMode="None"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="0,0,0,0"/>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:EventLogEntryModel">
+                            <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="0,6,0,6"
+                                    Margin="0">
+                                <Grid RowSpacing="6">
+                                    <Grid.RowDefinitions>
+                                        <!-- Header & Metadata & Copy Button -->
+                                        <RowDefinition Height="Auto" />
+                                        <!-- Message Body -->
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Row 0: Header & Metadata and Copy Button -->
+                                    <Grid Grid.Row="0" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" /> <!-- Level Icon -->
+                                            <ColumnDefinition Width="Auto" /> <!-- Level Badge -->
+                                            <ColumnDefinition Width="*" />    <!-- Combined Details -->
+                                            <ColumnDefinition Width="Auto" /> <!-- Copy Button -->
+                                        </Grid.ColumnDefinitions>
+
+                                        <FontIcon Grid.Column="0"
+                                                  Glyph="{x:Bind local:EventLogPage.GetLevelGlyph(Level)}" 
+                                                  Foreground="{x:Bind local:EventLogPage.GetLevelBrush(Level)}" 
+                                                  FontSize="14" 
+                                                  VerticalAlignment="Center"/>
+
+                                        <Border Grid.Column="1"
+                                                Background="{x:Bind local:EventLogPage.GetLevelBackgroundBrush(Level), Mode=OneWay}"
+                                                CornerRadius="4"
+                                                Padding="6,2,6,2"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind local:EventLogPage.GetLevelName(Level), Mode=OneWay}" 
+                                                       Foreground="White" 
+                                                       FontWeight="Bold" 
+                                                       FontSize="9"/>
+                                        </Border>
+
+                                        <!-- Consolidated metadata text that wraps automatically -->
+                                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="11" TextWrapping="Wrap">
+                                            <Run Text="{x:Bind ProviderName}" FontWeight="SemiBold" FontSize="12" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                            <Run Text=" | ID: " Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <Run Text="{x:Bind EventId}" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                            <Run Text=" | Rec: " Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <Run Text="{x:Bind RecordId}" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                            <Run Text=" | Comp: " Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <Run Text="{x:Bind MachineName}" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                            <Run Text=" | User: " Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <Run Text="{x:Bind UserId}" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                            <Run Text=" | " Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <Run Text="{x:Bind local:EventLogPage.FormatDateTime(TimeCreated)}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </TextBlock>
+
+                                        <!-- Compact Copy Message Button -->
+                                        <Button Grid.Column="3"
+                                                Click="CopyItemMessage_Click"
+                                                ToolTipService.ToolTip="Copy message"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="6,4,6,4"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource DefaultButtonStyle}">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <FontIcon Glyph="&#xE8C8;" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                <TextBlock Text="Copy" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Row 1: Full Message Body -->
+                                    <TextBlock Grid.Row="1"
+                                               Text="{x:Bind Message}"
+                                               IsTextSelectionEnabled="True"
+                                               TextWrapping="Wrap"
+                                               FontFamily="Consolas"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Grid>
+
+        <!-- Status footer -->
+        <Grid Grid.Row="3">
+            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" 
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
+                       FontSize="12" />
+        </Grid>
+    </Grid>
+</Page>
