@@ -2,6 +2,8 @@
 
 OmniLog is a dark-mode Windows Event Viewer replacement built with C# and WinUI 3. It allows you to easily read and search logs on Windows 11.
 
+![OmniLog Screenshot](example.png)
+
 ## Develop locally
 
 ### Prerequisites
